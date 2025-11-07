@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useLanguage } from "../context/LanguageContext";
 import {
   PackagePlus,
@@ -15,88 +14,79 @@ import {
 
 export default function SellerDashboard() {
   const { translate } = useLanguage();
-  const router = useRouter();
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // ✅ State
   const [sellerUser, setSellerUser] = useState<string>("");
-  const [role, setRole] = useState<string>("buyer");
-  const [loading, setLoading] = useState(true);
+  const [isSeller, setIsSeller] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
 
+  // ✅ Kiểm tra thông tin người dùng sau khi component mount (client-side)
   useEffect(() => {
-    async function checkAccess() {
+    const checkSeller = async () => {
       try {
+        // ⚙️ Chỉ chạy khi đã có window
+        if (typeof window === "undefined") return;
+
         const stored = localStorage.getItem("pi_user");
         const logged = localStorage.getItem("titi_is_logged_in");
 
+        // ❌ Nếu chưa đăng nhập → chỉ đánh dấu đã kiểm tra
         if (!stored || logged !== "true") {
-          setIsLoggedIn(false);
-          router.push("/pilogin");
+          setIsChecking(false);
           return;
         }
 
         const parsed = JSON.parse(stored);
         const username =
           parsed?.user?.username || parsed?.username || "guest_user";
-
         setSellerUser(username);
-        setIsLoggedIn(true);
 
-        const res = await fetch(`/api/users/role?username=${username}`);
+        // ✅ Gọi API kiểm tra quyền
+        const res = await fetch(`/api/users/role?username=${username}`, {
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          console.warn("⚠️ Không thể xác thực quyền người bán.");
+          setIsChecking(false);
+          return;
+        }
+
         const data = await res.json();
-
         if (data?.role === "seller") {
-          setRole("seller");
-        } else {
-          alert("🚫 Bạn không có quyền truy cập khu vực Người Bán!");
-          router.push("/customer");
+          setIsSeller(true);
         }
       } catch (err) {
-        console.error("❌ Lỗi xác thực:", err);
-        router.push("/pilogin");
+        console.error("❌ Lỗi khi kiểm tra quyền người bán:", err);
       } finally {
-        setLoading(false);
+        setIsChecking(false);
       }
-    }
+    };
 
-    checkAccess();
-  }, [router]);
+    checkSeller();
+  }, []);
 
-  if (loading) {
+  // 🕓 Đang kiểm tra → hiển thị loading ngắn gọn
+  if (isChecking) {
     return (
-      <main className="p-6 text-center">
-        <h2 className="text-xl font-semibold text-gray-600">
-          ⏳ Đang xác thực tài khoản...
-        </h2>
+      <main className="flex items-center justify-center min-h-screen text-gray-500">
+        ⏳ {translate("checking_access") || "Đang kiểm tra quyền truy cập..."}
       </main>
     );
   }
 
-  if (!isLoggedIn || role !== "seller") {
-    return (
-      <main className="p-6 text-center">
-        <h2 className="text-xl font-bold text-red-600 mb-3">
-          🔐 {translate("login_required") ||
-            "Vui lòng đăng nhập để truy cập khu vực Người Bán"}
-        </h2>
-        <button
-          onClick={() => router.push("/pilogin")}
-          className="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-        >
-          👉 {translate("go_to_login") || "Đăng nhập ngay"}
-        </button>
-      </main>
-    );
+  // ❌ Nếu không phải người bán → ẩn trang
+  if (!isSeller) {
+    return null;
   }
 
+  // ✅ Khi là người bán
   return (
     <main className="p-6 pb-24 max-w-6xl mx-auto">
-      {/* Hiển thị chỉ tên người bán */}
       <div className="text-right text-sm text-gray-700 mb-4">
-        👤 {translate("seller_label") || "Người bán"}:{" "}
-        <b>{sellerUser}</b>
+        👤 {translate("seller_label") || "Người bán"}: <b>{sellerUser}</b>
       </div>
 
-      {/* Danh mục chức năng */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-5 text-center mt-2">
         <Link
           href="/seller/post"
