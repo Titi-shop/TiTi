@@ -25,7 +25,7 @@ export default function CheckoutPage() {
     if (saved) setShipping(JSON.parse(saved));
   }, []);
 
-  // 💳 Thanh toán qua Pi giữ nguyên logic file 2
+  // 💳 Thanh toán qua Pi (logic gốc)
   const handlePayWithPi = async () => {
     if (!piReady || !window.Pi) {
       alert("⚠️ Pi SDK chưa sẵn sàng. Hãy mở trong Pi Browser.");
@@ -37,7 +37,7 @@ export default function CheckoutPage() {
       return;
     }
     if (cart.length === 0) {
-      alert("sản phẩm!");
+      alert("🛒 Giỏ hàng trống!");
       return;
     }
     if (!shipping?.name || !shipping?.phone || !shipping?.address) {
@@ -69,6 +69,7 @@ export default function CheckoutPage() {
             body: JSON.stringify({ paymentId }),
           });
         },
+
         onReadyForServerCompletion: async (paymentId: string, txid: string) => {
           console.log("✅ onReadyForServerCompletion:", paymentId, txid);
           await fetch("/api/orders", {
@@ -85,6 +86,7 @@ export default function CheckoutPage() {
               createdAt: new Date().toISOString(),
             }),
           });
+
           await fetch("/api/pi/complete", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -95,10 +97,12 @@ export default function CheckoutPage() {
           alert("🎉 Thanh toán thành công!");
           router.push("/customer/pending");
         },
+
         onCancel: async (paymentId: string) => {
           console.log("🛑 onCancel:", paymentId);
           alert("❌ Giao dịch đã huỷ.");
         },
+
         onError: (error: any) => {
           console.error("💥 onError:", error);
           alert("💥 Lỗi thanh toán: " + error.message);
@@ -112,6 +116,14 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ Xử lý đường dẫn ảnh an toàn
+  const resolveImageUrl = (img?: string) => {
+    if (!img) return "/placeholder.png";
+    if (img.startsWith("http")) return img;
+    const cleanPath = img.replace(/^\//, "");
+    return `https://muasam-titi.pi/${cleanPath}`;
   };
 
   return (
@@ -151,7 +163,7 @@ export default function CheckoutPage() {
           <span className="text-blue-500 text-sm ml-3">Chỉnh sửa ➜</span>
         </div>
 
-        {/* Giỏ hàng */}
+        {/* sản phẩm  */}
         <div className="p-4 bg-white mt-2 border-t">
           <h2 className="font-semibold text-gray-800 mb-2">Giỏ hàng</h2>
           {cart.length === 0 ? (
@@ -159,12 +171,7 @@ export default function CheckoutPage() {
           ) : (
             <div className="space-y-3">
               {cart.map((item, i) => {
-                const imageUrl =
-                  item.image && item.image.startsWith("http")
-                    ? item.image
-                    : item.image
-                    ? `https://muasam.titi.onl${item.image}`
-                    : "/placeholder.png";
+                const imageUrl = resolveImageUrl(item.image);
 
                 return (
                   <div
@@ -209,13 +216,39 @@ export default function CheckoutPage() {
         <button
           onClick={handlePayWithPi}
           disabled={loading}
-          className={`px-6 py-3 rounded-lg font-semibold text-white text-sm ${
+          className={`px-6 py-3 rounded-lg font-semibold text-white text-sm flex items-center gap-2 ${
             loading
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-orange-600 hover:bg-orange-700 active:bg-orange-800"
           }`}
         >
-          {loading ? "Đang xử lý..." : "Pay Now"}
+          {loading ? (
+            <>
+              <svg
+                className="animate-spin h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                ></path>
+              </svg>
+              <span>Đang xử lý...</span>
+            </>
+          ) : (
+            "Pay Now"
+          )}
         </button>
       </div>
     </main>
