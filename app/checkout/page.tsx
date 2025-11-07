@@ -37,7 +37,7 @@ export default function CheckoutPage() {
       return;
     }
     if (cart.length === 0) {
-      alert("🛒 Giỏ hàng trống!");
+      alert("sản phẩm!");
       return;
     }
     if (!shipping?.name || !shipping?.phone || !shipping?.address) {
