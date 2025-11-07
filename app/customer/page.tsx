@@ -40,7 +40,7 @@ export default function CustomerDashboard() {
   // ✅ Trang chính
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* ===== Header (khung cam) ===== */}
+     {/* ===== Header (khung cam) ===== */}
 <div className="bg-orange-500 text-white p-6 text-center shadow relative flex flex-col items-center justify-center">
   {/* ✅ Avatar — chỉ click được vào vòng tròn này */}
   <div
@@ -62,8 +62,7 @@ export default function CustomerDashboard() {
   <h1 className="text-xl font-semibold select-none">
     {user.username}
   </h1>
-</div>
-
+</div>   {/* 👈 dòng này rất quan trọng! phải có ngoặc đóng này */}
       </div>
 
       {/* ===== Thanh công cụ đơn hàng ===== */}
