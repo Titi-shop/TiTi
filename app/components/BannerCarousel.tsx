@@ -13,16 +13,14 @@ export default function BannerCarousel() {
 
   useEffect(() => {
     fetch("/api/banners")
-      .then((res) => {
-        if (!res.ok) throw new Error("Không thể tải dữ liệu banner");
-        return res.json();
-      })
-      .then((data) => setBanners(Array.isArray(data) ? data : []))
-      .catch((err) => {
-        console.error("❌ Lỗi tải banner:", err);
-        setError(err.message);
-      })
-      .finally(() => setLoading(false));
+  .then((res) => res.ok ? res.json() : Promise.resolve([]))
+  .then((data) => setBanners(Array.isArray(data) ? data : []))
+  .catch((err) => {
+    console.error("❌ Lỗi tải banner:", err);
+    setBanners([]);
+  })
+  .finally(() => setLoading(false));
+
   }, []);
 
   if (loading)
