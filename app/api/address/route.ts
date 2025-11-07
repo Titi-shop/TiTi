@@ -22,11 +22,13 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { username, name, phone, address } = await req.json();
+   const { username, name, phone, address, country, countryCode } = await req.json();
+
     if (!username) throw new Error("Missing username");
 
     const key = `address:${username.toLowerCase()}`;
-    await kv.set(key, { name, phone, address });
+   await kv.set(key, { name, phone, address, country, countryCode });
+
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
