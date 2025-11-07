@@ -1,6 +1,8 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import BannerCarousel from "./components/BannerCarousel";
 
 export default function HomePage() {
   const router = useRouter();
@@ -26,7 +28,11 @@ export default function HomePage() {
   }, []);
 
   if (loading)
-    return <p className="text-center mt-10 text-gray-500">⏳ Đang tải sản phẩm...</p>;
+    return (
+      <p className="text-center mt-10 text-gray-500">
+        ⏳ Đang tải sản phẩm...
+      </p>
+    );
 
   if (error)
     return (
@@ -36,18 +42,24 @@ export default function HomePage() {
     );
 
   return (
-    <main className="bg-gray-100 min-h-screen pb-20">
-      {/* ❌ Bỏ tiêu đề “Sản phẩm” để giao diện giống Shopee */}
+    <main className="bg-white min-h-screen pb-20">
+      {/* 🖼 Banner quảng cáo */}
+      <div className="w-full mb-3">
+        <BannerCarousel />
+      </div>
 
+      {/* 🛍 Danh sách sản phẩm */}
       {products.length === 0 ? (
-        <p className="text-center text-gray-500 mt-4">Chưa có sản phẩm nào.</p>
+        <p className="text-center text-gray-500 mt-4">
+          🚫 Chưa có sản phẩm nào.
+        </p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 bg-gray-100">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-[1px] bg-gray-200">
           {products.map((p: any) => (
             <div
               key={p.id}
               onClick={() => router.push(`/product/${p.id}`)}
-              className="bg-white cursor-pointer border border-gray-200 hover:shadow-md transition-all duration-200"
+              className="bg-white cursor-pointer transition-transform hover:scale-[1.01] active:scale-[0.98]"
             >
               {p.images?.[0] ? (
                 <img
@@ -57,10 +69,11 @@ export default function HomePage() {
                   className="w-full aspect-square object-cover"
                 />
               ) : (
-                <div className="w-full aspect-square bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
+                <div className="w-full aspect-square bg-gray-100 flex items-center justify-center text-gray-400">
                   Không có ảnh
                 </div>
               )}
+
               <div className="p-2">
                 <h2 className="text-[13px] font-medium text-gray-800 line-clamp-2 leading-tight">
                   {p.name}
