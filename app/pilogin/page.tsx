@@ -1,130 +1,153 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+import Link from "next/link";
+import { useLanguage } from "../context/LanguageContext";
+import {
+  PackagePlus,
+  Package,
+  ClipboardList,
+  RefreshCcw,
+  Truck,
+  Wallet,
+} from "lucide-react";
 
-export default function PiLoginPage() {
-  const router = useRouter();
-  const { user, piReady, pilogin } = useAuth();
+export default function SellerDashboard() {
+  const { translate } = useLanguage();
 
-  const [status, setStatus] = useState("⏳ Đang tải...");
-  const [agreed, setAgreed] = useState(false);
+  // ✅ State
+  const [sellerUser, setSellerUser] = useState<string>("");
+  const [isSeller, setIsSeller] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
-  // ✅ Kiểm tra nếu user đã đăng nhập sẵn
+  // ✅ Kiểm tra thông tin người dùng sau khi component mount (client-side)
   useEffect(() => {
-    if (user) {
-      // chỉ hiển thị dòng “Xin chào ...” trên trang, không toast
-      setStatus(`🎉 Xin chào ${user.username}`);
-      // đợi 1.2s rồi chuyển trang
-      setTimeout(() => router.push("/customer"), 1200);
-    } else {
-      setIsChecking(false);
-    }
-  }, [user, router]);
+    const checkSeller = async () => {
+      try {
+        // ⚙️ Chỉ chạy khi đã có window
+        if (typeof window === "undefined") return;
 
-  // ✅ Theo dõi trạng thái Pi SDK
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!piReady) {
-      setStatus("⚙️ Đang khởi động Pi SDK...");
-      return;
-    }
-    if (!user) setStatus("");
-  }, [piReady, user]);
+        const stored = localStorage.getItem("pi_user");
+        const logged = localStorage.getItem("titi_is_logged_in");
 
-  // ✅ Xử lý đăng nhập
-  const handleLogin = async () => {
-    if (!agreed) {
-      setStatus("⚠️ Vui lòng đọc và đồng ý với điều khoản trước khi đăng nhập.");
-      return;
-    }
-    if (!piReady || typeof window === "undefined" || !window.Pi) {
-      setStatus("⚠️ Vui lòng mở bằng Pi Browser và chờ SDK load xong!");
-      return;
-    }
+        // ❌ Nếu chưa đăng nhập → chỉ đánh dấu đã kiểm tra
+        if (!stored || logged !== "true") {
+          setIsChecking(false);
+          return;
+        }
 
-    try {
-      setStatus("🔑 Đang xác thực tài khoản...");
-      await pilogin();
-      setStatus("✅ Đăng nhập thành công!");
-      setTimeout(() => router.push("/customer"), 1200);
-    } catch (err: any) {
-      console.error("❌ Lỗi đăng nhập:", err);
-      setStatus("❌ Lỗi đăng nhập: " + (err.message || "Không rõ nguyên nhân"));
-    }
-  };
+        const parsed = JSON.parse(stored);
+        const username =
+          parsed?.user?.username || parsed?.username || "guest_user";
+        setSellerUser(username);
 
-  // ✅ Trang kiểm tra đăng nhập
+        // ✅ Gọi API kiểm tra quyền
+        const res = await fetch(`/api/users/role?username=${username}`, {
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          console.warn("⚠️ Không thể xác thực quyền người bán.");
+          setIsChecking(false);
+          return;
+        }
+
+        const data = await res.json();
+        if (data?.role === "seller") {
+          setIsSeller(true);
+        }
+      } catch (err) {
+        console.error("❌ Lỗi khi kiểm tra quyền người bán:", err);
+      } finally {
+        setIsChecking(false);
+      }
+    };
+
+    checkSeller();
+  }, []);
+
+  // 🕓 Đang kiểm tra → hiển thị loading ngắn gọn
   if (isChecking) {
     return (
-      <main className="flex flex-col items-center justify-center min-h-screen bg-white text-gray-500 text-lg">
-        ⏳ Đang kiểm tra đăng nhập...
+      <main className="flex items-center justify-center min-h-screen text-gray-500">
+        ⏳ {translate("checking_access") || "Đang kiểm tra quyền truy cập..."}
       </main>
     );
   }
 
-  // ✅ Giao diện chính
+  // ❌ Nếu không phải người bán → ẩn trang
+  if (!isSeller) {
+    return null;
+  }
+
+  // ✅ Khi là người bán
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen bg-white text-center px-6 relative">
-      {/* 🔹 Trạng thái nhỏ, cố định phía trên nút */}
-      {status && (
-        <p className="text-gray-700 text-sm absolute top-[35%] whitespace-pre-line">
-          {status}
-        </p>
-      )}
-
-      {/* 🔹 Khu vực nút đăng nhập (được đẩy lên cao hơn một chút) */}
-      <div className="flex flex-col items-center justify-center space-y-4 mt-[-60px]">
-        <button
-          onClick={handleLogin}
-          disabled={!piReady || !agreed}
-          className={`${
-            piReady && agreed
-              ? "bg-orange-500 hover:bg-orange-600 cursor-pointer"
-              : "bg-gray-300 cursor-not-allowed"
-          } text-white font-semibold py-3 px-10 rounded-full text-lg shadow-md transition-all duration-200`}
-        >
-          Đăng nhập
-        </button>
-
-        {/* 🔹 Điều khoản */}
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <input
-            type="checkbox"
-            id="agree"
-            checked={agreed}
-            onChange={() => setAgreed(!agreed)}
-            className="w-4 h-4 accent-orange-500 cursor-pointer"
-          />
-          <label htmlFor="agree" className="select-none">
-            Tôi đồng ý {" "}
-            <a
-              href="https://www.termsfeed.com/live/7eae894b-14dd-431c-99da-0f94cab5b9ac"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-orange-500 underline"
-            >
-              《Điều khoản sử dụng》
-            </a>{" "}
-            và{" "}
-            <a
-              href="https://www.termsfeed.com/live/32e8bf86-ceaf-4eb6-990e-cd1fa0b0775e"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-orange-500 underline"
-            >
-              《Chính sách bảo mật》
-            </a>
-          </label>
-        </div>
+    <main className="p-6 pb-24 max-w-6xl mx-auto">
+      <div className="text-right text-sm text-gray-700 mb-4">
+        👤 {translate("seller_label") || "Người bán"}: <b>{sellerUser}</b>
       </div>
 
-      {/* 🔹 Footer */}
-      <footer className="absolute bottom-6 text-gray-400 text-xs">
-        © copyRight 2023 1pi.app
-      </footer>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-5 text-center mt-2">
+        <Link
+          href="/seller/post"
+          className="bg-amber-500 hover:bg-amber-600 text-white p-6 rounded-lg shadow transition"
+        >
+          <PackagePlus size={36} />
+          <span className="mt-2 font-semibold block">
+            📦 {translate("post_product") || "Đăng sản phẩm"}
+          </span>
+        </Link>
+
+        <Link
+          href="/seller/stock"
+          className="bg-blue-500 hover:bg-blue-600 text-white p-6 rounded-lg shadow transition"
+        >
+          <Package size={36} />
+          <span className="mt-2 font-semibold block">
+            🏬 {translate("manage_stock") || "Kho hàng"}
+          </span>
+        </Link>
+
+        <Link
+          href="/seller/orders"
+          className="bg-green-500 hover:bg-green-600 text-white p-6 rounded-lg shadow transition"
+        >
+          <ClipboardList size={36} />
+          <span className="mt-2 font-semibold block">
+            🧾 {translate("process_orders") || "Xử lý đơn"}
+          </span>
+        </Link>
+
+        <Link
+          href="/seller/status"
+          className="bg-purple-500 hover:bg-purple-600 text-white p-6 rounded-lg shadow transition"
+        >
+          <RefreshCcw size={36} />
+          <span className="mt-2 font-semibold block">
+            📊 {translate("update_status") || "Cập nhật trạng thái"}
+          </span>
+        </Link>
+
+        <Link
+          href="/seller/delivery"
+          className="bg-orange-500 hover:bg-orange-600 text-white p-6 rounded-lg shadow transition"
+        >
+          <Truck size={36} />
+          <span className="mt-2 font-semibold block">
+            🚚 {translate("delivery") || "Giao hàng"}
+          </span>
+        </Link>
+
+        <Link
+          href="/seller/wallet"
+          className="bg-emerald-500 hover:bg-emerald-600 text-white p-6 rounded-lg shadow transition"
+        >
+          <Wallet size={36} />
+          <span className="mt-2 font-semibold block">
+            💰 {translate("wallet") || "Ví Pi"}
+          </span>
+        </Link>
+      </div>
     </main>
   );
 }
