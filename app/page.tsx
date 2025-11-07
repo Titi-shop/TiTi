@@ -1,14 +1,32 @@
 "use client";
+export const dynamic = "force-dynamic"; // 🚀 Tắt prerender build để tránh lỗi "b is not a function"
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import BannerCarousel from "./components/BannerCarousel";
-import { useLanguage } from "./context/LanguageContext"; // ✅ import
+import { useLanguage } from "./context/LanguageContext"; // ⚙️ vẫn giữ nguyên
 
 export default function HomePage() {
   const router = useRouter();
-  const { t, language, setLanguage } = useLanguage(); // ✅ Lấy ngôn ngữ & hàm dịch
+
+  // 🔐 Dùng fallback an toàn nếu context bị lỗi (tránh crash khi prerender)
+  let t: any = (k: string) => k;
+  let language = "vi";
+  let setLanguage = () => {};
+
+  try {
+    const langCtx = useLanguage();
+    if (langCtx) {
+      t = langCtx.t;
+      language = langCtx.language;
+      setLanguage = langCtx.setLanguage;
+    }
+  } catch {
+    // Nếu useLanguage() chưa sẵn sàng ở build time → bỏ qua
+    console.warn("⚠️ Context chưa sẵn sàng, dùng fallback.");
+  }
+
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +48,18 @@ export default function HomePage() {
     loadProducts();
   }, [t]);
 
-  if (loading) return <p className="text-center mt-10 text-gray-500">{t("loading")}</p>;
-  if (error) return <p className="text-center mt-10 text-red-500">{t("error")}</p>;
+  if (loading)
+    return (
+      <p className="text-center mt-10 text-gray-500">
+        {t("loading") || "⏳ Đang tải sản phẩm..."}
+      </p>
+    );
+  if (error)
+    return (
+      <p className="text-center mt-10 text-red-500">
+        {t("error") || "⚠️ Lỗi tải dữ liệu"}
+      </p>
+    );
 
   return (
     <main className="bg-white min-h-screen pb-20">
@@ -45,14 +73,16 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* Banner */}
+      {/* 🖼 Banner */}
       <div className="mb-2">
         <BannerCarousel />
       </div>
 
-      {/* Sản phẩm */}
+      {/* 🛍 Danh sách sản phẩm */}
       {products.length === 0 ? (
-        <p className="text-center text-gray-500 mt-4">{t("noProducts")}</p>
+        <p className="text-center text-gray-500 mt-4">
+          {t("noProducts") || "Không có sản phẩm nào."}
+        </p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-[1px] bg-gray-100">
           {products.map((p: any) => (
