@@ -50,7 +50,7 @@ export default function ShopPage() {
               />
               <h3 className="font-semibold mt-2 text-gray-800 line-clamp-2">{p.name}</h3>
               <p className="text-orange-500 font-medium mt-1">
-                {translate("product_price")}: {p.price} π
+               {p.price} π
               </p>
             </Link>
           ))}
