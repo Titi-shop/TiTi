@@ -4,26 +4,25 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/app/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
-import { Clock, Package, Truck, Star, LogOut, User } from "lucide-react";
+import { Clock, Package, Truck, Star, LogOut } from "lucide-react";
 
 export default function CustomerDashboard() {
   const { user, logout, piReady } = useAuth();
   const { translate } = useLanguage();
   const router = useRouter();
 
-  // ✅ Nếu chưa đăng nhập → tự động chuyển đến /pilogin (không hiển thị thông báo)
+  // ✅ Nếu chưa đăng nhập → tự động chuyển về /pilogin
   useEffect(() => {
     if (piReady && !user) {
       router.replace("/pilogin");
     }
   }, [piReady, user, router]);
 
-  // ⏳ Nếu Pi SDK chưa sẵn sàng hoặc đang tải user, hiển thị trang trống
   if (!piReady || !user) {
     return <div className="min-h-screen bg-gray-100"></div>;
   }
 
-  // ✅ Hàm đăng xuất khỏi Pi Network
+  // ✅ Hàm đăng xuất
   const handleLogoutPi = async () => {
     try {
       if (typeof window !== "undefined" && window.Pi?.logout) {
@@ -33,15 +32,15 @@ export default function CustomerDashboard() {
     } catch (err) {
       console.error("⚠️ Lỗi logout Pi:", err);
     } finally {
-      logout(); // dùng hàm context
+      logout();
       router.replace("/pilogin");
     }
   };
 
-  // ✅ Giao diện chính khi đã đăng nhập
+  // ✅ Trang chính
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* ===== Thông tin người dùng ===== */}
+      {/* ===== Header (khung cam) ===== */}
       <div className="bg-orange-500 text-white p-6 text-center shadow relative">
         <div
           className="flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition"
@@ -51,20 +50,6 @@ export default function CustomerDashboard() {
             {user.username.charAt(0).toUpperCase()}
           </div>
           <h1 className="text-xl font-semibold">{user.username}</h1>
-          <p className="text-sm opacity-90 mt-1">
-            {translate("customer_title") || "Khách hàng TiTi Mall"}
-          </p>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push("/customer/profile");
-            }}
-            className="mt-3 bg-white text-orange-600 text-sm px-4 py-1 rounded-full flex items-center gap-1 hover:bg-gray-100 transition"
-          >
-            <User size={16} />
-            {translate("account") || "Tài khoản"}
-          </button>
         </div>
       </div>
 
