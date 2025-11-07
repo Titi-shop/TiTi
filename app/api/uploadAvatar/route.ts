@@ -3,6 +3,12 @@ import { MongoClient } from "mongodb";
 import { put } from "@vercel/blob";
 import { Redis } from "@upstash/redis";
 
+const avatarRedis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
+
+
 const redis = new Redis({ url: process.env.KV_URL! });
 const client = new MongoClient(process.env.MONGODB_URI!);
 
