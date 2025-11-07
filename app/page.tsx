@@ -79,7 +79,7 @@ export default function HomePage() {
                   {p.name}
                 </h2>
                 <p className="text-orange-600 font-bold text-[13px] mt-1">
-                  {p.price} Pi
+                  {p.price} π
                 </p>
               </div>
             </div>
