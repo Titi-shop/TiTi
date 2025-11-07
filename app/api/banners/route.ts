@@ -8,7 +8,7 @@ export async function GET() {
   const banners = [
     {
       id: 1,
-      image: "/banners/d506c80c-c548-41ce-b0e2-79dafa6d2de4.jfif",
+      image: "/banners/public/banners/Trắng Đơn giản Sức khỏe Tinh thần 16_9 Video_20251107_180130_0000.mp4",
       link: "/category/pet",
       title: "Ưu đãi đặc biệt cho thú cưng 🐶",
     },
