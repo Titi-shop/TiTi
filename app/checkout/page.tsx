@@ -171,7 +171,8 @@ export default function CheckoutPage() {
           ) : (
             <div className="space-y-3">
               {cart.map((item, i) => {
-                const imageUrl = resolveImageUrl(item.image);
+                const imageUrl = resolveImageUrl(item.image || item.images?.[0]);
+
 
                 return (
                   <div
