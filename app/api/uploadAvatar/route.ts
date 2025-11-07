@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { MongoClient } from "mongodb";
-import { R2Blob } from "@vercel/blob";
+import { put } from "@vercel/blob";
 import { Redis } from "@upstash/redis";
 
 const redis = new Redis({ url: process.env.KV_URL! });
