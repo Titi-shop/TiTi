@@ -106,7 +106,7 @@ export async function POST(req: Request) {
       name,
       price,
       description: description || "",
-      images: images || [],
+      images: images.map((img: any) => img.url || img) || [],
       seller: sellerLower,
       createdAt: new Date().toISOString(),
     };
