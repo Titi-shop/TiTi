@@ -36,37 +36,39 @@ export default function HomePage() {
     );
 
   return (
-    <main className="bg-gray-50 min-h-screen pb-20">
-      <h1 className="text-xl font-bold text-center mt-6 mb-4">🛍 Sản phẩm</h1>
+    <main className="bg-gray-100 min-h-screen pb-20">
+      {/* ❌ Bỏ tiêu đề “Sản phẩm” để giao diện giống Shopee */}
 
       {products.length === 0 ? (
-        <p className="text-center text-gray-500">Chưa có sản phẩm nào.</p>
+        <p className="text-center text-gray-500 mt-4">Chưa có sản phẩm nào.</p>
       ) : (
-        <div className="grid gap-4 px-3 sm:px-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 bg-gray-100">
           {products.map((p: any) => (
             <div
               key={p.id}
               onClick={() => router.push(`/product/${p.id}`)}
-              className="bg-white rounded-xl shadow hover:shadow-lg transition-all cursor-pointer border border-gray-100 p-3"
+              className="bg-white cursor-pointer border border-gray-200 hover:shadow-md transition-all duration-200"
             >
               {p.images?.[0] ? (
                 <img
                   src={p.images[0]}
                   alt={p.name}
                   loading="lazy"
-                  className="w-full aspect-square object-cover rounded-lg mb-2"
+                  className="w-full aspect-square object-cover"
                 />
               ) : (
-                <div className="w-full aspect-square bg-gray-100 flex items-center justify-center rounded-lg mb-2 text-gray-400">
+                <div className="w-full aspect-square bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
                   Không có ảnh
                 </div>
               )}
-              <h2 className="font-semibold text-sm text-gray-800 line-clamp-2">
-                {p.name}
-              </h2>
-              <p className="text-orange-600 font-bold text-sm mt-1">
-                {p.price} Pi
-              </p>
+              <div className="p-2">
+                <h2 className="text-[13px] font-medium text-gray-800 line-clamp-2 leading-tight">
+                  {p.name}
+                </h2>
+                <p className="text-orange-600 font-bold text-[13px] mt-1">
+                  {p.price} Pi
+                </p>
+              </div>
             </div>
           ))}
         </div>
