@@ -192,11 +192,11 @@ export default function CheckoutPage() {
                         {item.name}
                       </p>
                       <p className="text-gray-500 text-xs">
-                        x{item.quantity} × {item.price} Pi
+                        x{item.quantity} × {item.price} π
                       </p>
                     </div>
                     <p className="text-orange-600 font-semibold text-sm">
-                      {(item.price * item.quantity).toFixed(2)} Pi
+                      {(item.price * item.quantity).toFixed(2)} π
                     </p>
                   </div>
                 );
@@ -211,7 +211,7 @@ export default function CheckoutPage() {
         <div>
           <p className="text-gray-600 text-sm">Tổng cộng:</p>
           <p className="text-xl font-bold text-orange-600">
-            {total.toFixed(2)} Pi
+            {total.toFixed(2)} π
           </p>
         </div>
         <button
