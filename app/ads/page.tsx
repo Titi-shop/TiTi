@@ -1,3 +1,5 @@
+"use client";
+
 import BannerCarousel from "../components/BannerCarousel";
 
 export const metadata = {
@@ -11,8 +13,12 @@ export default function AdsPage() {
         🎉 Ưu đãi đặc biệt hôm nay 🎉
       </h1>
 
-      <BannerCarousel />
+      {/* 🖼 Hiển thị banner Swiper */}
+      <div className="max-w-4xl mx-auto">
+        <BannerCarousel />
+      </div>
 
+      {/* 🔥 Danh sách ưu đãi */}
       <section className="mt-6 space-y-3 text-center">
         <h2 className="text-lg font-semibold text-gray-800">
           🔥 Chương trình nổi bật
