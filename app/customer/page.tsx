@@ -11,30 +11,19 @@ export default function CustomerDashboard() {
   const { translate } = useLanguage();
   const router = useRouter();
 
-  // ✅ Nếu chưa đăng nhập → chuyển về /pilogin
+  // ✅ Nếu chưa đăng nhập → tự động chuyển đến /pilogin (không hiển thị thông báo)
   useEffect(() => {
     if (piReady && !user) {
       router.replace("/pilogin");
     }
   }, [piReady, user, router]);
 
-  // 🚫 Khi chưa có user → hiển thị chờ hoặc nhắc đăng nhập
-  if (!user)
-    return (
-      <main className="min-h-screen flex flex-col items-center justify-center bg-gray-100 text-center">
-        <h2 className="text-2xl font-bold text-red-600 mb-3">
-          🔐 {translate("login_required") || "Vui lòng đăng nhập bằng Pi Network để tiếp tục"}
-        </h2>
-        <button
-          onClick={() => router.push("/pilogin")}
-          className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded"
-        >
-          👉 {translate("go_to_login") || "Đăng nhập ngay"}
-        </button>
-      </main>
-    );
+  // ⏳ Nếu Pi SDK chưa sẵn sàng hoặc đang tải user, hiển thị trang trống
+  if (!piReady || !user) {
+    return <div className="min-h-screen bg-gray-100"></div>;
+  }
 
-  // ✅ Hàm đăng xuất đồng bộ
+  // ✅ Hàm đăng xuất khỏi Pi Network
   const handleLogoutPi = async () => {
     try {
       if (typeof window !== "undefined" && window.Pi?.logout) {
@@ -49,7 +38,7 @@ export default function CustomerDashboard() {
     }
   };
 
-  // ✅ Nếu đã đăng nhập
+  // ✅ Giao diện chính khi đã đăng nhập
   return (
     <div className="min-h-screen bg-gray-100">
       {/* ===== Thông tin người dùng ===== */}
