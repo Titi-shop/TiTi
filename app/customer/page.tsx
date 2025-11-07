@@ -41,16 +41,29 @@ export default function CustomerDashboard() {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* ===== Header (khung cam) ===== */}
-      <div className="bg-orange-500 text-white p-6 text-center shadow relative">
-        <div
-          className="flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition"
-          onClick={() => router.push("/customer/profile")}
-        >
-          <div className="w-16 h-16 bg-white rounded-full mb-3 flex items-center justify-center text-orange-500 font-bold text-xl">
-            {user.username.charAt(0).toUpperCase()}
-          </div>
-          <h1 className="text-xl font-semibold">{user.username}</h1>
-        </div>
+<div className="bg-orange-500 text-white p-6 text-center shadow relative flex flex-col items-center justify-center">
+  {/* ✅ Avatar — chỉ click được vào vòng tròn này */}
+  <div
+    onClick={() => router.push("/customer/profile")}
+    className="w-16 h-16 bg-white rounded-full mb-3 flex items-center justify-center text-orange-500 font-bold text-xl cursor-pointer hover:opacity-90 transition"
+  >
+    {user.avatarUrl ? (
+      <img
+        src={user.avatarUrl}
+        alt="Avatar"
+        className="w-16 h-16 rounded-full object-cover"
+      />
+    ) : (
+      user.username.charAt(0).toUpperCase()
+    )}
+  </div>
+
+  {/* ✅ Tên người dùng (không click được) */}
+  <h1 className="text-xl font-semibold select-none">
+    {user.username}
+  </h1>
+</div>
+
       </div>
 
       {/* ===== Thanh công cụ đơn hàng ===== */}
