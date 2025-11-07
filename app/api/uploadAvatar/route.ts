@@ -1,46 +1,44 @@
 import { NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
 import { put } from "@vercel/blob";
 import { Redis } from "@upstash/redis";
+import clientPromise from "@/lib/mongodb";
 
-const avatarRedis = new Redis({
+const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
   token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 });
-
-
-const redis = new Redis({ url: process.env.KV_URL! });
-const client = new MongoClient(process.env.MONGODB_URI!);
 
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const userId = formData.get("userId") as string;
+    const username = formData.get("username") as string;
 
-    if (!file) return NextResponse.json({ error: "Không có file" }, { status: 400 });
+    if (!file || !username) {
+      return NextResponse.json({ error: "Thiếu dữ liệu file hoặc username" }, { status: 400 });
+    }
 
-    // Upload lên Blob Storage
-    const blob = new R2Blob(process.env.BLOB_READ_WRITE_TOKEN!);
-    const blobResult = await blob.upload(file.name, file);
+    // upload lên vercel blob
+    const blob = await put(`avatars/${username}-${Date.now()}.jpg`, file, {
+      access: "public",
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
 
-    const avatarUrl = blobResult.url;
+    // lưu đường dẫn vào redis
+    await redis.set(`avatar:${username}`, blob.url);
 
-    // Cập nhật KV
-    await redis.set(`avatar:${userId}`, avatarUrl);
-
-    // Cập nhật MongoDB
-    await client.connect();
-    const db = client.db("titimall");
-    await db.collection("users").updateOne(
-      { uid: userId },
-      { $set: { avatar: avatarUrl } },
+    // lưu vào mongodb
+    const client = await clientPromise;
+    const db = client.db("titi_users");
+    await db.collection("avatars").updateOne(
+      { username },
+      { $set: { url: blob.url, updatedAt: new Date() } },
       { upsert: true }
     );
 
-    return NextResponse.json({ url: avatarUrl });
+    return NextResponse.json({ success: true, url: blob.url });
   } catch (error) {
-    console.error("Upload error:", error);
-    return NextResponse.json({ error: "Lỗi máy chủ" }, { status: 500 });
+    console.error("❌ Upload avatar error:", error);
+    return NextResponse.json({ error: "Lỗi upload ảnh" }, { status: 500 });
   }
 }
