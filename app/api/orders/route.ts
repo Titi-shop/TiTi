@@ -1,19 +1,46 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { kv } from "@vercel/kv";
 
-/**
- * 🧾 TiTi Shop - API Đơn hàng (MongoDB)
- * -------------------------------------
- * ✅ Giữ nguyên toàn bộ logic cũ
- * ✅ Dùng MongoDB để lưu thật
- * ✅ Không cần @vercel/kv nữa
- */
+// ----------------------------
+// 🔸 Helper: Đọc danh sách đơn hàng
+// ----------------------------
+async function readOrders() {
+  try {
+    const stored = await kv.get("orders");
+    if (!stored) return [];
+    if (Array.isArray(stored)) return stored;
 
+    try {
+      return JSON.parse(stored);
+    } catch {
+      console.warn("⚠️ Dữ liệu orders trong KV không hợp lệ, reset lại.");
+      return [];
+    }
+  } catch (err) {
+    console.error("❌ Lỗi đọc orders:", err);
+    return [];
+  }
+}
+
+// ----------------------------
+// 🔸 Helper: Ghi danh sách đơn hàng
+// ----------------------------
+async function writeOrders(orders: any[]) {
+  try {
+    await kv.set("orders", JSON.stringify(orders));
+    return true;
+  } catch (err) {
+    console.error("❌ Lỗi ghi orders:", err);
+    return false;
+  }
+}
+
+// ----------------------------
+// 🔹 GET: Lấy danh sách đơn hàng
+// ----------------------------
 export async function GET() {
   try {
-    const client = await clientPromise;
-    const db = client.db("muasam_titi");
-    const orders = await db.collection("orders").find().sort({ _id: -1 }).toArray();
+    const orders = await readOrders();
     return NextResponse.json(orders);
   } catch (err) {
     console.error("❌ GET /orders:", err);
@@ -21,9 +48,13 @@ export async function GET() {
   }
 }
 
+// ----------------------------
+// 🔹 POST: Tạo đơn hàng mới
+// ----------------------------
 export async function POST(req: Request) {
   try {
     const order = await req.json();
+    const orders = await readOrders();
 
     const newOrder = {
       id: order.id ?? `ORD-${Date.now()}`,
@@ -33,17 +64,17 @@ export async function POST(req: Request) {
       status: order.status ?? "Chờ xác nhận",
       note: order.note ?? "",
       shipping: order.shipping ?? {},
-      paymentId: order.paymentId ?? "",
-      txid: order.txid ?? "",
+      paymentId: order.paymentId ?? "", // ✅ thêm để liên kết với giao dịch Pi
+      txid: order.txid ?? "", // ✅ thêm mã giao dịch blockchain
       createdAt: order.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    const client = await clientPromise;
-    const db = client.db("muasam_titi");
-    await db.collection("orders").insertOne(newOrder);
+    orders.unshift(newOrder);
+    await writeOrders(orders);
 
     console.log("🧾 [ORDER CREATED]:", newOrder);
+
     return NextResponse.json({ success: true, order: newOrder });
   } catch (err) {
     console.error("❌ POST /orders:", err);
@@ -51,31 +82,34 @@ export async function POST(req: Request) {
   }
 }
 
+// ----------------------------
+// 🔹 PUT: Cập nhật trạng thái đơn hàng
+// ----------------------------
 export async function PUT(req: Request) {
   try {
     const { id, status, txid } = await req.json();
+    const orders = await readOrders();
 
-    const client = await clientPromise;
-    const db = client.db("muasam_titi");
-
-    const existing = await db.collection("orders").findOne({ id });
-    if (!existing)
+    const index = orders.findIndex((o) => String(o.id) === String(id));
+    if (index === -1) {
       return NextResponse.json(
         { success: false, message: "Không tìm thấy đơn hàng" },
         { status: 404 }
       );
+    }
 
-    const updated = {
-      ...existing,
-      status: status || existing.status,
-      txid: txid || existing.txid,
+    orders[index] = {
+      ...orders[index],
+      status: status || orders[index].status,
+      txid: txid || orders[index].txid, // ✅ cập nhật txid nếu có
       updatedAt: new Date().toISOString(),
     };
 
-    await db.collection("orders").updateOne({ id }, { $set: updated });
+    await writeOrders(orders);
 
-    console.log("🔄 [ORDER UPDATED]:", updated);
-    return NextResponse.json({ success: true, order: updated });
+    console.log("🔄 [ORDER UPDATED]:", orders[index]);
+
+    return NextResponse.json({ success: true, order: orders[index] });
   } catch (err) {
     console.error("❌ PUT /orders:", err);
     return NextResponse.json({ success: false }, { status: 500 });
