@@ -1,20 +1,55 @@
 import { NextResponse } from "next/server";
+import { del, put, list } from "@vercel/blob";
 import { headers } from "next/headers";
-import clientPromise from "@/lib/mongodb";
 
 /**
  * ====================================
  * 🧩 TiTi Shop - API Quản lý sản phẩm
  * ------------------------------------
- * ✅ Sử dụng MongoDB
- * ✅ Giữ nguyên tính năng gốc
- * ✅ Ổn định trên Pi Browser + Vercel
+ * ✅ Dành cho Next.js 15 / Edge runtime
+ * ✅ Chạy ổn định trên Pi Browser + Vercel
+ * ✅ Không lỗi "ERR_INVALID_URL"
+ * ✅ Dễ hiểu, gọn, chú thích rõ
  * ====================================
  */
+
+/** Đọc danh sách sản phẩm từ Blob */
+async function readProducts() {
+  try {
+    const { blobs } = await list();
+    const file = blobs.find((b) => b.pathname === "products.json");
+    if (!file) return [];
+    const res = await fetch(file.url, { cache: "no-store" });
+    return await res.json();
+  } catch (err) {
+    console.error("❌ Lỗi đọc products.json:", err);
+    return [];
+  }
+}
+
+/** Ghi danh sách sản phẩm vào Blob */
+async function writeProducts(products: any[]) {
+  try {
+    const data = JSON.stringify(products, null, 2);
+    const { blobs } = await list();
+    const old = blobs.find((b) => b.pathname === "products.json");
+    if (old) await del("products.json");
+
+    await put("products.json", data, {
+      access: "public",
+      addRandomSuffix: false,
+    });
+
+    console.log("✅ Đã lưu products.json:", products.length);
+  } catch (err) {
+    console.error("❌ Lỗi ghi file:", err);
+  }
+}
 
 /** Kiểm tra role người dùng có phải seller không */
 async function isSeller(username: string): Promise<boolean> {
   try {
+    // ✅ Lấy domain thật từ header (hoạt động trên cả server & client)
     const host = headers().get("host");
     const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
     const baseUrl = `${protocol}://${host}`;
@@ -23,7 +58,11 @@ async function isSeller(username: string): Promise<boolean> {
       cache: "no-store",
     });
 
-    if (!res.ok) return false;
+    if (!res.ok) {
+      console.warn("⚠️ Không xác minh được quyền người bán:", res.status);
+      return false;
+    }
+
     const data = await res.json();
     return data.role === "seller";
   } catch (err) {
@@ -34,15 +73,8 @@ async function isSeller(username: string): Promise<boolean> {
 
 /** 🔹 GET - Lấy toàn bộ sản phẩm */
 export async function GET() {
-  try {
-    const client = await clientPromise;
-    const db = client.db("muasam_titi");
-    const products = await db.collection("products").find().sort({ _id: -1 }).toArray();
-    return NextResponse.json(products);
-  } catch (err) {
-    console.error("❌ Lỗi đọc sản phẩm:", err);
-    return NextResponse.json([], { status: 500 });
-  }
+  const products = await readProducts();
+  return NextResponse.json(products);
 }
 
 /** 🔹 POST - Tạo sản phẩm mới (chỉ seller được phép) */
@@ -68,20 +100,21 @@ export async function POST(req: Request) {
       );
     }
 
-    const client = await clientPromise;
-    const db = client.db("muasam_titi");
-
+    const products = await readProducts();
     const newProduct = {
+      id: Date.now(),
       name,
       price,
       description: description || "",
-      images: images?.map((img: any) => img.url || img) || [],
+      images: images || [],
       seller: sellerLower,
       createdAt: new Date().toISOString(),
     };
 
-    const result = await db.collection("products").insertOne(newProduct);
-    return NextResponse.json({ success: true, product: { ...newProduct, _id: result.insertedId } });
+    products.unshift(newProduct);
+    await writeProducts(products);
+
+    return NextResponse.json({ success: true, product: newProduct });
   } catch (err) {
     console.error("❌ POST error:", err);
     return NextResponse.json(
@@ -106,30 +139,31 @@ export async function PUT(req: Request) {
 
     const sellerLower = seller.trim().toLowerCase();
     const canEdit = await isSeller(sellerLower);
-    if (!canEdit)
+
+    if (!canEdit) {
       return NextResponse.json(
         { success: false, message: "Không có quyền sửa sản phẩm" },
         { status: 403 }
       );
+    }
 
-    const client = await clientPromise;
-    const db = client.db("muasam_titi");
+    const products = await readProducts();
+    const index = products.findIndex((p: any) => p.id === id);
 
-    const existing = await db.collection("products").findOne({ _id: new ObjectId(id) });
-    if (!existing)
+    if (index === -1)
       return NextResponse.json(
         { success: false, message: "Không tìm thấy sản phẩm" },
         { status: 404 }
       );
 
-    if (existing.seller.toLowerCase() !== sellerLower)
+    if (products[index].seller.toLowerCase() !== sellerLower)
       return NextResponse.json(
         { success: false, message: "Không được sửa sản phẩm người khác" },
         { status: 403 }
       );
 
-    const updated = {
-      ...existing,
+    products[index] = {
+      ...products[index],
       name,
       price,
       description,
@@ -137,9 +171,8 @@ export async function PUT(req: Request) {
       updatedAt: new Date().toISOString(),
     };
 
-    await db.collection("products").updateOne({ _id: existing._id }, { $set: updated });
-
-    return NextResponse.json({ success: true, product: updated });
+    await writeProducts(products);
+    return NextResponse.json({ success: true, product: products[index] });
   } catch (err) {
     console.error("❌ PUT error:", err);
     return NextResponse.json(
@@ -150,12 +183,10 @@ export async function PUT(req: Request) {
 }
 
 /** 🔹 DELETE - Xóa sản phẩm (chỉ chính chủ seller) */
-import { ObjectId } from "mongodb";
-
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id");
+    const id = Number(searchParams.get("id"));
     const body = await req.json();
     const seller = (body?.seller || "").toLowerCase();
 
@@ -172,10 +203,8 @@ export async function DELETE(req: Request) {
         { status: 403 }
       );
 
-    const client = await clientPromise;
-    const db = client.db("muasam_titi");
-
-    const product = await db.collection("products").findOne({ _id: new ObjectId(id) });
+    const products = await readProducts();
+    const product = products.find((p: any) => p.id === id);
     if (!product)
       return NextResponse.json(
         { success: false, message: "Không tìm thấy sản phẩm" },
@@ -188,7 +217,8 @@ export async function DELETE(req: Request) {
         { status: 403 }
       );
 
-    await db.collection("products").deleteOne({ _id: new ObjectId(id) });
+    const updated = products.filter((p) => p.id !== id);
+    await writeProducts(updated);
 
     return NextResponse.json({ success: true });
   } catch (err) {
