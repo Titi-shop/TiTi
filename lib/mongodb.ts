@@ -1,17 +1,14 @@
 import { MongoClient } from "mongodb";
 
 const uri = process.env.MONGODB_URI as string;
-const options = {};
+if (!uri) throw new Error("❌ MONGODB_URI is missing in environment variables");
 
-if (!uri) {
-  throw new Error("❌ MONGODB_URI is missing in environment variables");
-}
+const options = {};
 
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
 declare global {
-  // Để tránh tạo lại client khi hot reload trong dev
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
