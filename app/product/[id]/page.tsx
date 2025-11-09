@@ -168,11 +168,22 @@ export default function ProductDetail() {
         </button>
       </div>
 
-      {/* 🔍 Lightbox ảnh lớn (nâng cấp có zoom và kích thước 60x70) */}
-{showLightbox && (
+      {showLightbox && (
   <div
     className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
     onClick={() => setShowLightbox(false)}
+    // 👇 Thêm 2 sự kiện này để xử lý vuốt ảnh
+    onTouchStart={(e) =>
+      (e.currentTarget.dataset.x = e.touches[0].clientX.toString())
+    }
+    onTouchEnd={(e) => {
+      const startX = parseFloat(e.currentTarget.dataset.x || "0");
+      const diff = e.changedTouches[0].clientX - startX;
+      if (Math.abs(diff) > 50) {
+        if (diff > 0) handlePrev(); // Vuốt sang phải => ảnh trước
+        else handleNext();          // Vuốt sang trái => ảnh kế tiếp
+      }
+    }}
   >
     {/* Nút đóng */}
     <button
@@ -183,11 +194,11 @@ export default function ProductDetail() {
     </button>
 
     {/* Ảnh có thể zoom */}
-    <div className="relative flex items-center justify-center overflow-hidden rounded-lg">
+    <div className="w-[440px] h-[440px] bg-black rounded-lg flex items-center justify-center overflow-hidden">
       <img
         src={validImages[currentIndex]}
         alt="Zoomed"
-        className="object-contain w-[60vw] h-[70vh] transition-transform duration-300 ease-in-out"
+        className="object-contain w-[100vw] h-[100vh] transition-transform duration-300 ease-in-out"
         style={{
           transformOrigin: "center center",
           transform: showZoom ? "scale(2)" : "scale(1)",
