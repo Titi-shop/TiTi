@@ -141,14 +141,16 @@ export default function ProductDetail() {
       </div>
 
       {/* 👁 Thông tin thêm */}
-      <div className="bg-white px-4 pb-3 flex items-center gap-4 text-gray-500 text-sm border-b">
+      <div 
+        className="bg-white px-4 pb-3 flex items-center gap-4 text-gray-500 text-sm border-b">
         <span>👁 {product.views ?? 11}</span>
         <span>🛒 {product.sold ?? 0} đã bán</span>
         <span>⭐ 5.0</span>
       </div>
 
       {/* 📦 Mô tả */}
-      <div className="bg-white p-4 text-gray-700 text-sm leading-relaxed">
+      <div 
+        className="bg-white p-4 text-gray-700 text-sm leading-relaxed">
         {product.description}
       </div>
 
@@ -158,13 +160,13 @@ export default function ProductDetail() {
           onClick={handleAddToCart}
           className="flex-1 mx-1 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded-md"
         >
-          🛒 Giỏ hàng
+          Giỏ hàng
         </button>
         <button
           onClick={handleCheckout}
           className="flex-1 mx-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-md"
         >
-          💳 Thanh toán
+          Thanh toán
         </button>
       </div>
 
