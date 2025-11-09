@@ -149,11 +149,9 @@ export default function ProductDetail() {
       </div>
 
       {/* 📦 Mô tả */}
-      <div 
-        className="bg-white p-4 text-gray-700 text-sm leading-relaxed">
-        {product.description}
-      </div>
-
+<div className="bg-white p-4 text-gray-700 text-sm leading-relaxed whitespace-pre-line">
+  {product.description}
+</div>
       {/* 🛍️ Nút hành động - nằm trên thanh điều hướng */}
       <div className="fixed bottom-16 left-0 right-0 bg-white border-t shadow-md flex justify-between px-3 py-2 z-50">
         <button
