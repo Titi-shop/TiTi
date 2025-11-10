@@ -13,8 +13,11 @@ export default function SellerPostPage() {
     text: "",
     type: "",
   });
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [images, setImages] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [selectedPreview, setSelectedPreview] = useState<string | null>(null);
 
   // ✅ Xác thực người dùng Pi
   useEffect(() => {
@@ -26,8 +29,7 @@ export default function SellerPostPage() {
         return;
       }
       const parsed = JSON.parse(stored);
-      const username =
-        (parsed?.user?.username || parsed?.username || "").trim().toLowerCase();
+      const username = (parsed?.user?.username || parsed?.username || "").trim().toLowerCase();
       setSellerUser(username);
     } catch (err) {
       console.error("❌ Lỗi xác thực Pi:", err);
@@ -35,7 +37,7 @@ export default function SellerPostPage() {
     }
   }, [router]);
 
-  // ✅ Upload ảnh
+  // ✅ Upload ảnh (không cắt)
   async function handleFileUpload(file: File): Promise<string | null> {
     try {
       const arrayBuffer = await file.arrayBuffer();
@@ -47,10 +49,8 @@ export default function SellerPostPage() {
         },
         body: arrayBuffer,
       });
-
       const data = await res.json();
-      if (data.url) return data.url;
-      throw new Error("Upload thất bại");
+      return data.url || null;
     } catch (err) {
       console.error("❌ Upload lỗi:", err);
       setMessage({ text: "Không thể tải ảnh lên.", type: "error" });
@@ -58,11 +58,18 @@ export default function SellerPostPage() {
     }
   }
 
+  // ✅ Khi chọn file
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setImagePreview(url);
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    setImages((prev) => [...prev, ...files]);
+    const urls = files.map((f) => URL.createObjectURL(f));
+    setPreviews((prev) => [...prev, ...urls]);
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   // ✅ Đăng sản phẩm
@@ -72,68 +79,54 @@ export default function SellerPostPage() {
     setMessage({ text: "", type: "" });
 
     const form = e.currentTarget;
-    let rawPrice = (form.price as any).value;
-    rawPrice = rawPrice.replace(",", ".");
-    const price = parseFloat(rawPrice);
     const name = (form.name as any).value.trim();
-    const description = (form.description as any).value.trim();
+    const desc = (form.description as any).value.trim();
+    const rawPrice = (form.price as any).value.replace(",", ".");
+    const price = parseFloat(rawPrice);
 
     if (isNaN(price) || price <= 0) {
-      setMessage({
-        text: "⚠️ Vui lòng nhập giá hợp lệ (số dương, có thể nhỏ hơn 1).",
-        type: "error",
-      });
+      setMessage({ text: "⚠️ Vui lòng nhập giá hợp lệ.", type: "error" });
       setSaving(false);
       return;
     }
 
-    if (!fileInputRef.current?.files?.length) {
-      setMessage({ text: "Vui lòng chọn ảnh!", type: "error" });
+    if (images.length === 0) {
+      setMessage({ text: "Vui lòng chọn ít nhất một ảnh.", type: "error" });
       setSaving(false);
       return;
     }
 
-    const file = fileInputRef.current.files[0];
-    const uploadedUrl = await handleFileUpload(file);
-    if (!uploadedUrl) {
-      setSaving(false);
-      return;
+    const urls: string[] = [];
+    for (const img of images) {
+      const url = await handleFileUpload(img);
+      if (url) urls.push(url);
     }
 
-    try {
-      const res = await fetch("/api/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          price,
-          description,
-          images: [uploadedUrl],
-          seller: sellerUser,
-        }),
-      });
+    const res = await fetch("/api/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        price,
+        description: desc,
+        images: urls,
+        seller: sellerUser,
+      }),
+    });
 
-      const result = await res.json();
-      if (result.success) {
-        setMessage({ text: "✅ Đăng sản phẩm thành công!", type: "success" });
-        setTimeout(() => router.push("/seller/stock"), 1500);
-      } else {
-        setMessage({
-          text: result.message || "❌ Đăng sản phẩm thất bại!",
-          type: "error",
-        });
-      }
-    } catch (err) {
-      console.error("❌ POST Error:", err);
-      setMessage({ text: "Lỗi khi đăng sản phẩm.", type: "error" });
-    } finally {
-      setSaving(false);
+    const data = await res.json();
+    if (data.success) {
+      setMessage({ text: "✅ Đăng sản phẩm thành công!", type: "success" });
+      setTimeout(() => router.push("/seller/stock"), 1500);
+    } else {
+      setMessage({ text: "❌ Lỗi khi đăng sản phẩm.", type: "error" });
     }
+    setSaving(false);
   };
 
   return (
     <main className="max-w-lg mx-auto p-6 pb-32 bg-white shadow rounded-lg mt-8">
-      <h1 className="text-2xl font-bold text-center mb-4">
+      <h1 className="text-2xl font-bold text-center mb-4 text-[#ff6600]">
         🛒 {translate("post_product") || "Đăng sản phẩm mới"}
       </h1>
 
@@ -154,12 +147,7 @@ export default function SellerPostPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block font-medium mb-1">Tên sản phẩm</label>
-          <input
-            name="name"
-            type="text"
-            required
-            className="w-full border rounded-md p-2"
-          />
+          <input name="name" type="text" required className="w-full border rounded-md p-2" />
         </div>
 
         <div>
@@ -170,42 +158,90 @@ export default function SellerPostPage() {
             step="any"
             min="0.000001"
             required
-            placeholder="VD: 0.2 hoặc 0.0005"
             className="w-full border rounded-md p-2"
           />
         </div>
 
         <div>
           <label className="block font-medium mb-1">Mô tả sản phẩm</label>
-          <textarea
-            name="description"
-            rows={3}
-            className="w-full border rounded-md p-2"
-          ></textarea>
+          <textarea name="description" rows={3} className="w-full border rounded-md p-2" />
         </div>
 
+        {/* Upload ảnh */}
         <div>
-          <label className="block font-medium mb-1">Ảnh sản phẩm</label>
+          <label className="block font-medium mb-2">Ảnh sản phẩm</label>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             onChange={handleFileChange}
             className="w-full"
           />
-          {imagePreview && (
-            <img
-              src={imagePreview}
-              alt="preview"
-              className="w-full h-48 object-cover mt-2 rounded-md"
-            />
-          )}
+
+          {/* ✅ Danh sách ảnh hiển thị */}
+          <div className="mt-3 space-y-2">
+            {previews.map((url, idx) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between bg-gray-100 rounded-md p-2"
+              >
+                <div
+                  onClick={() => setSelectedPreview(url)}
+                  className="flex items-center gap-3 cursor-pointer"
+                >
+                  <img
+                    src={url}
+                    alt={`preview-${idx}`}
+                    className="w-[70px] h-[70px] object-cover rounded-md border border-gray-300"
+                  />
+                  <span className="text-gray-700 text-sm truncate">
+                    {images[idx]?.name}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeImage(idx)}
+                  className="text-purple-600 text-lg font-bold px-2"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+
+            {previews.length > 0 && (
+              <label className="text-[#ff6600] cursor-pointer block mt-1">
+                + Thêm ảnh khác
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+              </label>
+            )}
+          </div>
         </div>
+
+        {/* Xem ảnh lớn */}
+        {selectedPreview && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
+            onClick={() => setSelectedPreview(null)}
+          >
+            <img
+              src={selectedPreview}
+              alt="preview-large"
+              className="max-w-[90%] max-h-[80%] rounded-lg shadow-lg"
+            />
+          </div>
+        )}
 
         <button
           type="submit"
           disabled={saving}
-          className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 rounded-lg font-semibold"
+          className="w-full bg-[#ff6600] hover:bg-[#e65500] text-white py-3 rounded-lg font-semibold"
         >
           {saving ? "⏳ Đang đăng..." : "📦 Đăng sản phẩm"}
         </button>
