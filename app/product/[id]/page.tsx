@@ -194,7 +194,7 @@ export default function ProductDetail() {
     </button>
 
     {/* Ảnh có thể zoom */}
-    <div className="w-[440px] h-[440px] bg-black rounded-lg flex items-center justify-center overflow-hidden">
+    <div className="w-[540px] h-[540px] bg-black rounded-lg flex items-center justify-center overflow-hidden">
       <img
         src={validImages[currentIndex]}
         alt="Zoomed"
