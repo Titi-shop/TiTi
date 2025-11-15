@@ -17,7 +17,7 @@ export default function PiLayoutClient({ children }: { children: React.ReactNode
 
           {/* ✅ Giao diện chính */}
           <Navbar />
-          <main className="pt-20 px-3">
+          <main className="pt-20 min-h-screen w-full bg-white">
             <PiStatus />
             {children}
           </main>
