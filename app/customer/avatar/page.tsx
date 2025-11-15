@@ -15,10 +15,13 @@ export default function AvatarPage() {
     if (piReady && !user) router.replace("/pilogin");
   }, [piReady, user, router]);
 
-  if (!piReady || !user)
-    return <div className="min-h-screen bg-gray-100"></div>;
+  if (!piReady || !user) return <div className="min-h-screen bg-gray-100"></div>;
 
-  // ✅ Xử lý chọn ảnh
+  // ✅ Ghi log user để dễ kiểm tra
+  useEffect(() => {
+    console.log("👤 User info:", user);
+  }, [user]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -27,10 +30,19 @@ export default function AvatarPage() {
     }
   };
 
-  // ✅ Upload ảnh
   const handleUpload = async () => {
     if (!selectedFile) {
-      alert("Vui lòng chọn ảnh trước khi tải lên!");
+      alert("⚠️ Vui lòng chọn ảnh trước khi tải lên!");
+      return;
+    }
+
+    // ✅ Kiểm tra username
+    const username =
+      user?.username || localStorage.getItem("titi_username") || "";
+
+    if (!username) {
+      alert("⚠️ Không xác định được username. Vui lòng đăng nhập lại.");
+      router.replace("/pilogin");
       return;
     }
 
@@ -38,7 +50,7 @@ export default function AvatarPage() {
       setLoading(true);
       const formData = new FormData();
       formData.append("file", selectedFile);
-      formData.append("username", user.username); // 🟢 Quan trọng
+      formData.append("username", username.trim());
 
       const res = await fetch("/api/uploadAvatar", {
         method: "POST",
@@ -46,12 +58,12 @@ export default function AvatarPage() {
       });
 
       const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error || "Lỗi tải ảnh");
+      if (!res.ok) throw new Error(data.error || "Lỗi tải ảnh lên máy chủ");
 
       alert("✅ Ảnh đại diện đã được cập nhật thành công!");
       router.refresh();
     } catch (err: any) {
+      console.error("❌ Upload lỗi:", err);
       alert("❌ Lỗi tải ảnh: " + err.message);
     } finally {
       setLoading(false);
@@ -63,12 +75,11 @@ export default function AvatarPage() {
       <div className="bg-white p-6 rounded-xl shadow-lg text-center w-80">
         <div className="relative w-24 h-24 mx-auto mb-4">
           <img
-            src={
-              preview ||
-              `/api/getAvatar?username=${user.username}` ||
-              "/default-avatar.png"
-            }
-            alt="avatar"
+           src={
+  preview
+    ? preview
+    : `/api/getAvatar?username=${user.username}`
+           }
             className="w-24 h-24 rounded-full object-cover border-4 border-orange-500"
           />
           <label className="absolute bottom-0 right-0 bg-orange-500 p-2 rounded-full cursor-pointer hover:bg-orange-600 transition">
@@ -83,9 +94,8 @@ export default function AvatarPage() {
         </div>
 
         <h1 className="text-lg font-semibold text-gray-800 mb-2">
-          {user.username}
+          {user.username || "Chưa đăng nhập"}
         </h1>
-        <p className="text-gray-600 text-sm mb-4">Thay đổi ảnh đại diện</p>
 
         <button
           onClick={handleUpload}
