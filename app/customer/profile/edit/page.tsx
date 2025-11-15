@@ -2,66 +2,62 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import { countries } from "@/data/countries";
 import { provincesByCountry } from "@/data/provinces";
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const { user, loading: authLoading, piReady } = useAuth();
+
   const [info, setInfo] = useState({
     pi_uid: "",
-    displayName: "",
+    appName: "",
     email: "",
-    phoneCode: "+84",
+    phoneCode: "+00", // sẽ được tự đổi theo quốc gia
     phone: "",
     address: "",
     province: "",
     country: "VN",
   });
+
   const [avatar, setAvatar] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  // ✅ Lấy thông tin user từ localStorage / API
+  // 🟢 Load profile
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("pi_user");
-      const logged = localStorage.getItem("titi_is_logged_in");
+    if (authLoading) return;
+    if (!user) return;
 
-      if (stored && logged === "true") {
-        const parsed = JSON.parse(stored);
-        const user = parsed.user || {};
-        const uid = user.uid || user.id || "";
+    const username = user.username || localStorage.getItem("titi_username");
 
-        setInfo((prev) => ({
-          ...prev,
-          pi_uid: uid,
-          displayName: user.username || "",
-        }));
-        setIsLoggedIn(true);
+    fetch(`/api/profile?username=${encodeURIComponent(username!)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data) {
+          const countryCode = data.country || "VN";
+          const countryData = countries.find((c) => c.code === countryCode);
 
-        if (uid) {
-          fetch(`/api/profile?pi_uid=${uid}`)
-            .then((res) => res.json())
-            .then((data) => {
-              if (data) {
-                setInfo((prev) => ({ ...prev, ...data }));
-                if (data.avatar) setAvatar(data.avatar);
-              }
-            })
-            .catch(() => console.log("⚠️ Không thể tải hồ sơ"));
+          setInfo((prev) => ({
+            ...prev,
+            pi_uid: data.pi_uid || "",
+            appName: data.appName || data.displayName || username!,
+            email: data.email || "",
+            phone: data.phone || "",
+            address: data.address || "",
+            province: data.province || "",
+            country: countryCode,
+            phoneCode: countryData?.dial || "+00",
+          }));
+
+          if (data.avatar) setAvatar(data.avatar);
         }
-      } else {
-        alert("⚠️ Vui lòng đăng nhập bằng Pi Network trước!");
-        router.replace("/pilogin");
-      }
-    } catch (err) {
-      console.error("❌ Lỗi đọc thông tin đăng nhập:", err);
-    }
-  }, [router]);
+      })
+      .catch(() => console.log("⚠️ Không thể tải hồ sơ"));
+  }, [authLoading, user, router]);
 
-  // ✅ Upload avatar
+  // 📸 Preview avatar
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -70,67 +66,49 @@ export default function EditProfilePage() {
     }
   };
 
-  const handleUploadAvatar = async () => {
-    if (!selectedFile) {
-      alert("⚠️ Vui lòng chọn ảnh trước khi tải lên!");
+  // 💾 Lưu hồ sơ
+  const handleSave = async () => {
+    if (!user) {
+      alert("❌ Bạn chưa đăng nhập.");
       return;
     }
 
-    const username = info.displayName || info.pi_uid;
-    setLoading(true);
+    // email basic validate
+    const emailPattern =
+      /^[a-zA-Z0-9._%+-]+@(?:gmail\.com|yahoo\.com|hotmail\.com|outlook\.com|icloud\.com|[\w.-]+\.\w{2,})$/;
 
-    try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("username", username);
-
-      const res = await fetch("/api/uploadAvatar", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-
-      if (res.ok && data.url) {
-        setAvatar(data.url);
-        alert("✅ Ảnh đại diện đã được cập nhật!");
-      } else {
-        alert("❌ Lỗi tải ảnh: " + data.error);
-      }
-    } catch (err: any) {
-      alert("❌ Không thể tải ảnh lên: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ Lưu hồ sơ
-  const handleSave = async () => {
-    if (!isLoggedIn || !info.pi_uid) {
-      alert("❌ Không thể lưu — chưa đăng nhập Pi Network.");
+    if (info.email && !emailPattern.test(info.email)) {
+      alert("⚠️ Email không hợp lệ!");
       return;
     }
 
     setSaving(true);
     try {
-      const body = { ...info, avatar };
+      const body = {
+        ...info,
+        username: user.username,
+        displayName: info.appName,
+        avatar,
+      };
 
       const res = await fetch("/api/profile", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.accessToken}`,
+        },
         body: JSON.stringify(body),
       });
 
       const data = await res.json();
       if (data.success) {
-        alert("✅ Hồ sơ đã được lưu!");
+        alert("✅ Hồ sơ đã lưu!");
         router.push("/customer/profile");
       } else {
-        alert("❌ Lưu thất bại!");
-        console.error(data.error);
+        alert("❌ Lỗi: " + (data.error || ""));
       }
-    } catch (err) {
-      console.error("❌ Lỗi khi lưu hồ sơ:", err);
-      alert("❌ Có lỗi xảy ra khi lưu hồ sơ.");
+    } catch {
+      alert("❌ Lỗi khi lưu hồ sơ.");
     } finally {
       setSaving(false);
     }
@@ -138,9 +116,18 @@ export default function EditProfilePage() {
 
   const provinceList = provincesByCountry[info.country] || [];
 
+  if (!piReady || authLoading || !user) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">Đang tải dữ liệu...</p>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gray-100 pb-32 relative">
-      {/* 🔙 Nút quay lại */}
+
+      {/* 🔙 Back */}
       <button
         onClick={() => router.back()}
         className="absolute top-3 left-3 text-orange-600 text-lg font-bold"
@@ -149,44 +136,38 @@ export default function EditProfilePage() {
       </button>
 
       <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg mt-12 p-6">
-        {/* 🧍 Ảnh đại diện */}
+
+        {/* Avatar */}
         <div className="relative w-24 h-24 mx-auto mb-4">
           <img
-            src={
-              avatar ||
-              `/api/getAvatar?username=${info.displayName}` ||
-              "/default-avatar.png"
-            }
+            src={avatar || `/api/getAvatar?username=${user.username}`}
             alt="avatar"
             className="w-24 h-24 rounded-full object-cover border-4 border-orange-500"
           />
-          <label className="absolute bottom-0 right-0 bg-orange-500 p-2 rounded-full cursor-pointer hover:bg-orange-600 transition">
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
+          <label className="absolute bottom-0 right-0 bg-orange-500 p-2 rounded-full cursor-pointer">
+            <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
             📸
           </label>
         </div>
 
         <h1 className="text-center text-lg font-semibold text-gray-800 mb-4">
-          {info.displayName || "Người dùng"}
+          {user?.username}
         </h1>
 
-        {/* 🧾 Form thông tin */}
         <div className="space-y-4">
+
+          {/* App Name */}
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Tên người dùng</label>
+            <label className="block text-sm text-gray-700 mb-1">Tên hiển thị</label>
             <input
               type="text"
               className="w-full border px-3 py-2 rounded"
-              value={info.displayName}
-              onChange={(e) => setInfo({ ...info, displayName: e.target.value })}
+              value={info.appName}
+              onChange={(e) => setInfo({ ...info, appName: e.target.value })}
             />
           </div>
 
+          {/* Email */}
           <div>
             <label className="block text-sm text-gray-700 mb-1">Email</label>
             <input
@@ -197,23 +178,14 @@ export default function EditProfilePage() {
             />
           </div>
 
+          {/* Phone – tự đổi mã vùng theo quốc gia */}
           <div>
             <label className="block text-sm text-gray-700 mb-1">Số điện thoại</label>
-            <div className="flex space-x-2">
-              <select
-                className="border px-2 py-2 rounded w-24"
-                value={info.phoneCode}
-                onChange={(e) => setInfo({ ...info, phoneCode: e.target.value })}
-              >
-                <option value="+84">🇻🇳 +84</option>
-                <option value="+1">🇺🇸 +1</option>
-                <option value="+81">🇯🇵 +81</option>
-                <option value="+82">🇰🇷 +82</option>
-                <option value="+33">🇫🇷 +33</option>
-              </select>
+            <div className="flex mb-1">
+              <span className="px-3 py-2 bg-gray-100 border rounded-l">{info.phoneCode}</span>
               <input
                 type="tel"
-                className="flex-1 border px-3 py-2 rounded"
+                className="flex-1 border px-3 py-2 rounded-r"
                 value={info.phone}
                 onChange={(e) => setInfo({ ...info, phone: e.target.value })}
                 placeholder="Nhập số điện thoại"
@@ -221,24 +193,33 @@ export default function EditProfilePage() {
             </div>
           </div>
 
+          {/* Address */}
           <div>
             <label className="block text-sm text-gray-700 mb-1">Địa chỉ</label>
             <textarea
               className="w-full border px-3 py-2 rounded h-20"
               value={info.address}
               onChange={(e) => setInfo({ ...info, address: e.target.value })}
-              placeholder="Số nhà, đường, phường..."
             />
           </div>
 
+          {/* Country */}
           <div>
             <label className="block text-sm text-gray-700 mb-1">Quốc gia</label>
             <select
               className="w-full border px-3 py-2 rounded"
               value={info.country}
-              onChange={(e) =>
-                setInfo({ ...info, country: e.target.value, province: "" })
-              }
+              onChange={(e) => {
+                const newCountry = e.target.value;
+                const c = countries.find((x) => x.code === newCountry);
+
+                setInfo((prev) => ({
+                  ...prev,
+                  country: newCountry,
+                  phoneCode: c?.dial || "+00",
+                  province: "",
+                }));
+              }}
             >
               {countries.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -248,10 +229,9 @@ export default function EditProfilePage() {
             </select>
           </div>
 
+          {/* Province */}
           <div>
-            <label className="block text-sm text-gray-700 mb-1">
-              Tỉnh / Thành phố
-            </label>
+            <label className="block text-sm text-gray-700 mb-1">Tỉnh / Thành phố</label>
             <select
               className="w-full border px-3 py-2 rounded"
               value={info.province}
@@ -265,24 +245,17 @@ export default function EditProfilePage() {
               ))}
             </select>
           </div>
+
         </div>
 
-        {/* ⚙️ Nút lưu */}
+        {/* SAVE */}
         <div className="flex flex-col mt-6 space-y-3">
           <button
             onClick={handleSave}
             disabled={saving}
-            className="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded"
+            className="bg-green-500 text-white py-2 rounded"
           >
             {saving ? "Đang lưu..." : "💾 Lưu thay đổi"}
-          </button>
-
-          <button
-            onClick={handleUploadAvatar}
-            disabled={loading}
-            className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2 rounded"
-          >
-            {loading ? "Đang tải..." : "📤 Cập nhật ảnh đại diện"}
           </button>
         </div>
       </div>
