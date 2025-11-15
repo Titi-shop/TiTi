@@ -1,6 +1,7 @@
-      "use client";
+"use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "../../context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -15,6 +16,7 @@ interface Order {
 }
 
 export default function ReviewPage() {
+  const router = useRouter();
   const { translate } = useLanguage();
   const { user, piReady } = useAuth();
 
@@ -24,7 +26,7 @@ export default function ReviewPage() {
   const [comments, setComments] = useState<{ [key: number]: string }>({});
   const [submitting, setSubmitting] = useState<number | null>(null);
 
-  // ✅ Tải danh sách đơn hàng hoàn tất để đánh giá
+  // ✅ Lấy danh sách đơn hàng hoàn tất để đánh giá
   useEffect(() => {
     if (!piReady) return;
     if (!user) {
@@ -105,11 +107,21 @@ export default function ReviewPage() {
     );
 
   return (
-    <main className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-5 text-center text-yellow-600">
-        ⭐ Đánh giá đơn hàng
-      </h1>
+    <main className="p-4 max-w-4xl mx-auto bg-gray-50 min-h-screen pb-24">
+      {/* ===== Nút quay lại + Tiêu đề ===== */}
+      <div className="flex items-center mb-4">
+        <button
+          onClick={() => router.back()}
+          className="text-orange-500 font-semibold text-lg mr-2"
+        >
+          ←
+        </button>
+        <h1 className="text-2xl font-bold text-yellow-600 flex items-center gap-2">
+          ⭐ Đánh giá đơn hàng
+        </h1>
+      </div>
 
+      {/* ===== Nội dung chính ===== */}
       {!orders.length ? (
         <p className="text-center text-gray-500">
           Không có đơn hàng nào cần đánh giá.
@@ -124,9 +136,7 @@ export default function ReviewPage() {
               className="border rounded-lg bg-white p-4 shadow hover:shadow-md transition"
             >
               <div className="flex justify-between items-center">
-                <h2 className="font-semibold text-lg">
-                  🧾 Mã đơn: #{order.id}
-                </h2>
+                <h2 className="font-semibold text-lg">🧾 Mã đơn: #{order.id}</h2>
                 <span className="text-gray-500 text-sm">
                   {new Date(order.createdAt).toLocaleString()}
                 </span>
@@ -136,7 +146,7 @@ export default function ReviewPage() {
                 💰 Tổng tiền: <b>{order.total} Pi</b>
               </p>
 
-              {/* ⭐⭐⭐⭐⭐ Thanh chọn sao */}
+              {/* ⭐⭐⭐⭐⭐ Đánh giá sao */}
               <div className="mt-3 flex gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -155,7 +165,7 @@ export default function ReviewPage() {
                 ))}
               </div>
 
-              {/* Ô nhập nhận xét */}
+              {/* Nhận xét */}
               <textarea
                 placeholder="Nhận xét của bạn (tùy chọn)"
                 value={comments[order.id] || ""}
@@ -181,6 +191,9 @@ export default function ReviewPage() {
           ))}
         </div>
       )}
+
+      {/* ===== Đệm chống che phần chân ===== */}
+      <div className="h-20"></div>
     </main>
   );
-}          
+}
