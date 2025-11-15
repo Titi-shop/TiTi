@@ -6,12 +6,14 @@ import { headers } from "next/headers";
  * ====================================
  * 🧩 TiTi Shop - API Quản lý sản phẩm
  * ------------------------------------
- * ✅ Dành cho Next.js 15 / Edge runtime
- * ✅ Chạy ổn định trên Pi Browser + Vercel
- * ✅ Không lỗi "ERR_INVALID_URL"
- * ✅ Dễ hiểu, gọn, chú thích rõ
+ * 🔥 Phiên bản có SALE tự động theo ngày
  * ====================================
  */
+
+// 🔹 Nhận biết môi trường Pi
+const isTestnet =
+  process.env.NEXT_PUBLIC_PI_ENV === "testnet" ||
+  process.env.PI_API_URL?.includes("/sandbox");
 
 /** Đọc danh sách sản phẩm từ Blob */
 async function readProducts() {
@@ -49,7 +51,11 @@ async function writeProducts(products: any[]) {
 /** Kiểm tra role người dùng có phải seller không */
 async function isSeller(username: string): Promise<boolean> {
   try {
-    // ✅ Lấy domain thật từ header (hoạt động trên cả server & client)
+    if (isTestnet) {
+      console.log("🧪 Testnet mode: tự động cho phép seller");
+      return true;
+    }
+
     const host = headers().get("host");
     const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
     const baseUrl = `${protocol}://${host}`;
@@ -71,17 +77,42 @@ async function isSeller(username: string): Promise<boolean> {
   }
 }
 
-/** 🔹 GET - Lấy toàn bộ sản phẩm */
+/** 🔹 GET - Lấy toàn bộ sản phẩm (có tính giá sale tự động) */
 export async function GET() {
   const products = await readProducts();
-  return NextResponse.json(products);
+  const now = new Date();
+
+  const enriched = products.map((p: any) => {
+    const start = p.saleStart ? new Date(p.saleStart) : null;
+    const end = p.saleEnd ? new Date(p.saleEnd) : null;
+
+    const isSale =
+      start && end && now >= start && now <= end && p.salePrice;
+
+    return {
+      ...p,
+      isSale,
+      finalPrice: isSale ? p.salePrice : p.price,
+    };
+  });
+
+  return NextResponse.json(enriched);
 }
 
-/** 🔹 POST - Tạo sản phẩm mới (chỉ seller được phép) */
+/** 🔹 POST - Tạo sản phẩm mới (có sale) */
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, price, description, images, seller } = body;
+    const {
+      name,
+      price,
+      description,
+      images,
+      seller,
+      salePrice,
+      saleStart,
+      saleEnd,
+    } = body;
 
     if (!name || !price || !seller) {
       return NextResponse.json(
@@ -101,6 +132,7 @@ export async function POST(req: Request) {
     }
 
     const products = await readProducts();
+
     const newProduct = {
       id: Date.now(),
       name,
@@ -108,7 +140,13 @@ export async function POST(req: Request) {
       description: description || "",
       images: images || [],
       seller: sellerLower,
+      env: isTestnet ? "testnet" : "mainnet",
       createdAt: new Date().toISOString(),
+
+      // ⭐ BỔ SUNG SALE
+      salePrice: salePrice || null,
+      saleStart: saleStart || null,
+      saleEnd: saleEnd || null,
     };
 
     products.unshift(newProduct);
@@ -124,11 +162,21 @@ export async function POST(req: Request) {
   }
 }
 
-/** 🔹 PUT - Cập nhật sản phẩm (chỉ chính chủ seller) */
+/** 🔹 PUT - Cập nhật sản phẩm (có cập nhật sale) */
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, name, price, description, images, seller } = body;
+    const {
+      id,
+      name,
+      price,
+      description,
+      images,
+      seller,
+      salePrice,
+      saleStart,
+      saleEnd,
+    } = body;
 
     if (!id || !seller || !name || !price) {
       return NextResponse.json(
@@ -169,6 +217,11 @@ export async function PUT(req: Request) {
       description,
       images,
       updatedAt: new Date().toISOString(),
+
+      // ⭐ CẬP NHẬT SALE
+      salePrice: salePrice ?? products[index].salePrice,
+      saleStart: saleStart ?? products[index].saleStart,
+      saleEnd: saleEnd ?? products[index].saleEnd,
     };
 
     await writeProducts(products);
@@ -182,7 +235,7 @@ export async function PUT(req: Request) {
   }
 }
 
-/** 🔹 DELETE - Xóa sản phẩm (chỉ chính chủ seller) */
+/** 🔹 DELETE - Xóa sản phẩm */
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
