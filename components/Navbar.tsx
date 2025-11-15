@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ShoppingCart, Globe } from "lucide-react";
+import { ShoppingCart, Globe, Search } from "lucide-react";
 import { useLanguage } from "@/app/context/LanguageContext";
+import { useRouter } from "next/navigation";
 
 export default function Navbar() {
   const [piPrice, setPiPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const { translate } = useLanguage();
+  const router = useRouter();
 
-  // 💰 Lấy giá Pi từ API /api/pi-price
   useEffect(() => {
     const fetchPrice = async () => {
       try {
@@ -23,28 +24,24 @@ export default function Navbar() {
         setLoading(false);
       }
     };
-
     fetchPrice();
-    const interval = setInterval(fetchPrice, 5 * 60 * 1000); // cập nhật mỗi 5 phút
+    const interval = setInterval(fetchPrice, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
+  const goSearch = () => router.push("/search");
+
   return (
-    <header className="fixed top-0 left-0 right-0 bg-white border-b shadow-sm z-50">
-      {/* Hàng trên: Giỏ hàng - Giá Pi giữa - Ngôn ngữ */}
-      <div className="relative flex items-center justify-between px-4 py-2">
-        {/* 🛒 Giỏ hàng (trái) */}
-        <Link
-          href="/cart"
-          aria-label="Giỏ hàng"
-          className="text-gray-700 hover:text-yellow-500"
-        >
+    <header className="fixed top-0 left-0 right-0 bg-orange-500 border-b shadow-sm z-50">
+      <div className="relative flex items-center justify-between px-4 py-2 text-white">
+        {/* 1) 🛒 Giỏ hàng (trái) */}
+        <Link href="/cart" aria-label="Giỏ hàng" className="hover:text-yellow-300 transition">
           <ShoppingCart size={22} />
         </Link>
 
-        {/* 💰 Giá Pi (giữa) */}
+        {/* 2) 💰 Giá Pi (giữa) */}
         <div className="absolute left-1/2 -translate-x-1/2">
-          <div className="text-xs sm:text-sm font-semibold text-purple-700 bg-purple-50 px-3 py-1 rounded-md shadow-sm">
+          <div className="text-xs sm:text-sm font-semibold bg-white text-orange-600 px-3 py-1 rounded-md shadow-sm">
             {loading
               ? "⏳ " + (translate("loading") || "Đang tải...")
               : piPrice
@@ -53,14 +50,23 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* 🌐 Ngôn ngữ (phải) */}
-        <Link
-          href="/language"
-          aria-label="Ngôn ngữ"
-          className="text-gray-700 hover:text-yellow-500"
-        >
-          <Globe size={22} />
-        </Link>
+        {/* 3) 🔍 Tìm kiếm → 4) 🌐 Ngôn ngữ (phải) */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={goSearch}
+            aria-label="Tìm kiếm"
+            className="hover:text-yellow-300 transition"
+          >
+            <Search size={22} />
+          </button>
+          <Link
+            href="/language"
+            aria-label="Ngôn ngữ"
+            className="hover:text-yellow-300 transition"
+          >
+            <Globe size={22} />
+          </Link>
+        </div>
       </div>
     </header>
   );
