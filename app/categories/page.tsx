@@ -49,7 +49,7 @@ export default function CategoryPage() {
           categories.map((c) => (
             <Link
               key={c.id}
-              href={`/category/${c.id}`}
+              href={`/category/${convertToSlug(c.name)}`}
               className="flex flex-col items-center min-w-[90px]"
             >
               <img
