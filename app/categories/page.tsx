@@ -1,10 +1,20 @@
+// app/categories/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-export default function CategoryPage() {
+// 🧩 Hàm tạo slug từ tên danh mục (chuẩn SEO)
+function toSlug(str: string) {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // bỏ dấu tiếng Việt
+    .toLowerCase()
+    .replace(/\s+/g, "-") // thay dấu cách bằng -
+    .replace(/[^\w-]+/g, ""); // bỏ ký tự lạ
+}
 
+export default function CategoryPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,7 +59,7 @@ export default function CategoryPage() {
           categories.map((c) => (
             <Link
               key={c.id}
-              href={`/category/${convertToSlug(c.name)}`}
+              href={`/category/${toSlug(c.name)}`} // ⭐ ĐÃ ĐỔI TỪ ID → SLUG
               className="flex flex-col items-center min-w-[90px]"
             >
               <img
@@ -74,7 +84,7 @@ export default function CategoryPage() {
         {categories.map((c) => (
           <Link
             key={c.id}
-            href={`/category/${c.id}`}
+            href={`/category/${toSlug(c.name)}`} // ⭐ ĐÃ ĐỔI TỪ ID → SLUG
             className="flex flex-col items-center"
           >
             <img
