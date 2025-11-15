@@ -1,39 +1,104 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import { kv } from "@vercel/kv";
 
-const reviewFile = path.join(process.cwd(), "data", "reviews.json");
+/**
+ * ✅ API: /api/reviews
+ * - Lưu và lấy danh sách đánh giá
+ * - Khắc phục lỗi "[object Object]" & 500 Internal Server Error
+ */
 
-function readReviews() {
-  if (!fs.existsSync(reviewFile)) return [];
-  return JSON.parse(fs.readFileSync(reviewFile, "utf-8"));
-}
-
-function saveReviews(data: any[]) {
-  fs.writeFileSync(reviewFile, JSON.stringify(data, null, 2), "utf-8");
-}
-
-// --- GET: Lấy tất cả đánh giá ---
+// 🟢 Lấy danh sách review
 export async function GET() {
-  return NextResponse.json(readReviews());
+  try {
+    const stored = await kv.get("reviews");
+
+    // Nếu KV lưu object thay vì JSON string -> xử lý an toàn
+    let reviews: any[] = [];
+    if (stored) {
+      if (typeof stored === "string") {
+        reviews = JSON.parse(stored);
+      } else if (Array.isArray(stored)) {
+        reviews = stored;
+      } else {
+        // Trường hợp lỡ lưu object
+        reviews = Object.values(stored);
+      }
+    }
+
+    return NextResponse.json({ success: true, reviews });
+  } catch (error: any) {
+    console.error("❌ Lỗi đọc reviews:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Lỗi đọc dữ liệu" },
+      { status: 500 }
+    );
+  }
 }
 
-// --- POST: Thêm đánh giá mới ---
+// 🟢 Gửi đánh giá mới
 export async function POST(req: Request) {
   try {
-    const { orderId, rating, comment } = await req.json();
-    const reviews = readReviews();
-    reviews.push({
+    const body = await req.json();
+    const { orderId, rating, comment, username } = body;
+
+    if (!orderId || !rating || !username) {
+      return NextResponse.json(
+        { success: false, error: "Thiếu orderId, rating hoặc username" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Đảm bảo đọc danh sách hiện có an toàn
+    let reviews: any[] = [];
+    const stored = await kv.get("reviews");
+
+    if (stored) {
+      if (typeof stored === "string") {
+        reviews = JSON.parse(stored);
+      } else if (Array.isArray(stored)) {
+        reviews = stored;
+      }
+    }
+
+    const newReview = {
       id: Date.now(),
       orderId,
       rating,
-      comment,
+      comment: comment || "",
+      username,
       createdAt: new Date().toISOString(),
-    });
-    saveReviews(reviews);
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("Lỗi POST review:", err);
-    return NextResponse.json({ success: false }, { status: 500 });
+    };
+
+    // ✅ Lưu review mới
+    reviews.unshift(newReview);
+    await kv.set("reviews", JSON.stringify(reviews));
+
+    // ✅ Cập nhật trạng thái reviewed trong orders
+    try {
+      const ordersRaw = await kv.get("orders");
+      let orders: any[] = [];
+
+      if (ordersRaw) {
+        if (typeof ordersRaw === "string") orders = JSON.parse(ordersRaw);
+        else if (Array.isArray(ordersRaw)) orders = ordersRaw;
+      }
+
+      const index = orders.findIndex((o) => String(o.id) === String(orderId));
+      if (index !== -1) {
+        orders[index].reviewed = true;
+        orders[index].updatedAt = new Date().toISOString();
+        await kv.set("orders", JSON.stringify(orders));
+      }
+    } catch (err) {
+      console.warn("⚠️ Không thể cập nhật reviewed trong orders:", err);
+    }
+
+    return NextResponse.json({ success: true, review: newReview });
+  } catch (error: any) {
+    console.error("❌ Lỗi lưu review:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Không thể lưu đánh giá" },
+      { status: 500 }
+    );
   }
 }
